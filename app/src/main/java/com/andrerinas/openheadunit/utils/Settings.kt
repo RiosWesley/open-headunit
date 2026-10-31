@@ -159,6 +159,24 @@ class Settings(private val context: Context) {
         get() = prefs.getBoolean("debug_show_cluster_on_main", false)
         set(value) { prefs.edit().putBoolean("debug_show_cluster_on_main", value).apply() }
 
+    // Draw the cluster stream on the head unit's own instrument-cluster display (an Android display,
+    // e.g. the BYD DiLink cluster). Wins over every other cluster sink. Needs the overlay grant.
+    var showClusterOnClusterDisplay: Boolean
+        get() = prefs.getBoolean("cluster_on_cluster_display", false)
+        set(value) { prefs.edit().putBoolean("cluster_on_cluster_display", value).apply() }
+
+    // The floating "map on the cluster" switch, remembered between sessions. Only read while
+    // showClusterOnClusterDisplay is on.
+    var clusterMapEnabled: Boolean
+        get() = prefs.getBoolean("cluster_map_enabled", true)
+        set(value) { prefs.edit().putBoolean("cluster_map_enabled", value).apply() }
+
+    // Where the map goes on the cluster display: "x,y,width,height" in display pixels. Blank means
+    // centred; see ClusterMapArea.
+    var clusterDisplayRect: String
+        get() = prefs.getString("cluster_display_rect", "") ?: ""
+        set(value) { prefs.edit().putString("cluster_display_rect", value).apply() }
+
     var ms9120Stretch: Boolean
         get() = prefs.getBoolean("ms9120_stretch", true)
         set(value) { prefs.edit().putBoolean("ms9120_stretch", value).apply() }

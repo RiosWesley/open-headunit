@@ -15,6 +15,8 @@ import com.andrerinas.openheadunit.aap.protocol.proto.Media
 import com.andrerinas.openheadunit.aap.protocol.proto.Sensors
 import com.andrerinas.openheadunit.connection.wifi.direct.WifiBandCapability
 import com.andrerinas.openheadunit.decoder.video.VideoDecoder
+import com.andrerinas.openheadunit.aap.cluster.ClusterMapArea
+import com.andrerinas.openheadunit.aap.cluster.ClusterVideoGeometry
 import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.HeadUnitScreenConfig
 import com.google.protobuf.Message
@@ -133,10 +135,21 @@ class ServiceDiscoveryResponse(private val context: Context)
             services.add(video)
 
             if (settings.enableClusterVideo) {
-                val clusterResolution = when (settings.clusterVideoResolution) {
+                // On the car's own cluster display the phone lays its UI out in exactly the map area.
+                val areaGeometry = if (settings.showClusterOnClusterDisplay) {
+                    val area = ClusterMapArea.current(context)
+                    ClusterVideoGeometry.forArea(area.width(), area.height())
+                } else null
+                val clusterResolution = areaGeometry?.resolution ?: when (settings.clusterVideoResolution) {
                     "1280x720" -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1280x720
                     "1920x1080" -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1920x1080
                     else -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._800x480
+                }
+                val clusterMarginWidth = areaGeometry?.marginWidth ?: 0
+                val clusterMarginHeight = areaGeometry?.marginHeight ?: 0
+                areaGeometry?.let {
+                    AppLog.i("[ServiceDiscovery] Cluster area ${it.contentWidth}x${it.contentHeight} " +
+                        "in a ${it.codecWidth}x${it.codecHeight} stream")
                 }
                 // 0 = automatic -> the previous hardcoded 160. An explicit cluster DPI scales the
                 // phone's cluster UI layout for the panel this sink drives.
@@ -159,8 +172,8 @@ class ServiceDiscoveryResponse(private val context: Context)
                             frameRate = Control.Service.MediaSinkService.VideoConfiguration.VideoFrameRateType._30
                             setDensity(clusterDpi)
                             setPixelAspectRatioE4(10000)
-                            setMarginWidth(0)
-                            setMarginHeight(0)
+                            setMarginWidth(clusterMarginWidth)
+                            setMarginHeight(clusterMarginHeight)
                             setVideoCodecType(Media.MediaCodecType.MEDIA_CODEC_VIDEO_H264_BP)
                         }.build())
 
@@ -170,8 +183,8 @@ class ServiceDiscoveryResponse(private val context: Context)
                                 frameRate = Control.Service.MediaSinkService.VideoConfiguration.VideoFrameRateType._30
                                 setDensity(clusterDpi)
                                 setPixelAspectRatioE4(10000)
-                                setMarginWidth(0)
-                                setMarginHeight(0)
+                                setMarginWidth(clusterMarginWidth)
+                                setMarginHeight(clusterMarginHeight)
                                 setVideoCodecType(Media.MediaCodecType.MEDIA_CODEC_VIDEO_H265)
                             }.build())
                         }

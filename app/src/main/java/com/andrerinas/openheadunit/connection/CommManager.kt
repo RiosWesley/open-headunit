@@ -7,6 +7,8 @@ import com.andrerinas.openheadunit.aap.AapSslContext
 import com.andrerinas.openheadunit.aap.AapTransport
 import com.andrerinas.openheadunit.aap.ClusterOverlay
 import com.andrerinas.openheadunit.aap.ClusterVideoStreamer
+import com.andrerinas.openheadunit.aap.cluster.ClusterDisplayOutput
+import com.andrerinas.openheadunit.aap.cluster.ClusterMapToggle
 import com.andrerinas.openheadunit.aap.ms9120.Ms9120Manager
 import com.andrerinas.openheadunit.input.KeyCode
 import com.andrerinas.openheadunit.aap.protocol.Channel
@@ -556,7 +558,20 @@ class CommManager(
             transport.startReading()
             _connectionState.emit(ConnectionState.TransportStarted)
             if (settings.enableClusterVideo) {
-                if (settings.showClusterOnMainDisplay) {
+                if (settings.showClusterOnClusterDisplay) {
+                    // The car's own cluster display. Its surface can come up mid-GOP (the display
+                    // appears only when the cluster projection is switched on), so every new
+                    // surface asks the phone for a fresh keyframe.
+                    ClusterVideoStreamer.frameListener = { data, offset, length ->
+                        ClusterDisplayOutput.onUnit(data, offset, length)
+                    }
+                    ClusterDisplayOutput.start(context) {
+                        _scope.launch { requestClusterKeyframe() }
+                    }
+                    // Switches the car's cluster to the projection (or leaves it native) as the
+                    // floating button was last left, and shows that button.
+                    ClusterMapToggle.onSessionStart(context)
+                } else if (settings.showClusterOnMainDisplay) {
                     // Debug: render the dedicated cluster stream in a small floating window ON TOP
                     // of the normal Android Auto projection, so both pictures are visible at once.
                     //
@@ -1013,6 +1028,8 @@ class CommManager(
 
             connection?.disconnect()
             ClusterVideoStreamer.stop()
+            ClusterMapToggle.onSessionEnd(context)
+            ClusterDisplayOutput.stop()
             // Stop the cluster pipeline but keep the dongle up showing the idle screen, in case the
             // user has MS9120 output enabled and will connect a phone again.
             com.andrerinas.openheadunit.aap.ms9120.Ms9120Manager.onAndroidAutoDisconnected()
